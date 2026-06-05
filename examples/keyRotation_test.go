@@ -32,7 +32,7 @@ import (
 // required states.
 
 func Test_rewrapKeyBlob(t *testing.T) {
-	message := `
+	const message = `
  
 Skipping the rewrapKeyBlob test. To enable, comment out the t.Skipf and message lines within the Test_rewrapKeyBlob test
 
