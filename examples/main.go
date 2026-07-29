@@ -83,10 +83,14 @@ func init() {
 			panic(fmt.Errorf("failed to append CA certificate"))
 		}
 
+		// ServerName must match the SAN in the server certificate.
+		// ClientConfig.Address is "host:port" and the cert SAN includes the port,
+		// so pass the full address as ServerName to satisfy TLS verification.
 		ClientConfig.DialOpts = []grpc.DialOption{
 			grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
 				Certificates: []tls.Certificate{certificate},
 				RootCAs:      certPool,
+				ServerName:   ClientConfig.Address,
 			})),
 		}
 	} else {
