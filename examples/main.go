@@ -7,10 +7,12 @@ SPDX-License-Identifier: Apache-2.0
 package examples
 
 import (
+	"context"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 
 	"github.com/IBM-Cloud/hpcs-grep11-go/v2/pkg/authorize"
@@ -18,6 +20,42 @@ import (
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
+
+// fixedServerNameCreds wraps a tls.Config and performs the TLS handshake
+// directly, bypassing gRPC's ClientHandshake which always strips the port from
+// the authority and overwrites ServerName. This allows a ServerName containing
+// a port (e.g. "grep11.example.com:9876") to be used as-is for TLS verification,
+// matching a non-standard cert SAN that includes the port.
+type fixedServerNameCreds struct {
+	cfg *tls.Config
+}
+
+func (f fixedServerNameCreds) ClientHandshake(ctx context.Context, _ string, rawConn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+	// Perform TLS handshake directly with our config — ServerName is preserved.
+	conn := tls.Client(rawConn, f.cfg)
+	if err := conn.HandshakeContext(ctx); err != nil {
+		conn.Close()
+		return nil, nil, err
+	}
+	return conn, credentials.TLSInfo{State: conn.ConnectionState()}, nil
+}
+
+func (f fixedServerNameCreds) ServerHandshake(conn net.Conn) (net.Conn, credentials.AuthInfo, error) {
+	return conn, nil, nil
+}
+
+func (f fixedServerNameCreds) Info() credentials.ProtocolInfo {
+	return credentials.ProtocolInfo{SecurityProtocol: "tls"}
+}
+
+func (f fixedServerNameCreds) Clone() credentials.TransportCredentials {
+	return fixedServerNameCreds{cfg: f.cfg.Clone()}
+}
+
+func (f fixedServerNameCreds) OverrideServerName(name string) error {
+	f.cfg.ServerName = name
+	return nil
+}
 
 var (
 	// ClientConfig contains required information to connect to a remote HPCS instance
@@ -83,15 +121,18 @@ func init() {
 			panic(fmt.Errorf("failed to append CA certificate"))
 		}
 
-		// ServerName must match the SAN in the server certificate.
-		// ClientConfig.Address is "host:port" and the cert SAN includes the port,
-		// so pass the full address as ServerName to satisfy TLS verification.
+		// The server certificate SAN is "host:port" (non-standard, port included).
+		// gRPC's ClientHandshake strips the port from the dial authority and overwrites
+		// ServerName — so we use fixedServerNameCreds to suppress that override.
+		// This lets Go TLS use the ServerName we set here ("host:port") directly,
+		// so standard certificate verification works with InsecureSkipVerify: false.
+		tlsCfg := &tls.Config{
+			Certificates: []tls.Certificate{certificate},
+			RootCAs:      certPool,
+			ServerName:   ClientConfig.Address, // "grep11.example.com:9876" — matches cert SAN
+		}
 		ClientConfig.DialOpts = []grpc.DialOption{
-			grpc.WithTransportCredentials(credentials.NewTLS(&tls.Config{
-				Certificates: []tls.Certificate{certificate},
-				RootCAs:      certPool,
-				ServerName:   ClientConfig.Address,
-			})),
+			grpc.WithTransportCredentials(fixedServerNameCreds{cfg: tlsCfg}),
 		}
 	} else {
 		// ── IAM / IBM Cloud mode ─────────────────────────────────────────────

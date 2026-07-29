@@ -32,29 +32,156 @@ the example code may skip tests.  This is documented in the example code.**
   
 ## Example setup and execution
 
-1. [Install Go](https://golang.org/doc/install).
+### Step 1 — Install Go
 
-2. Clone this repository into a local directory of your choice. Go modules are used for this
-   repository, so there is no need to place the cloned repository in your `GOPATH`.
+Check the `go` directive in [`go.mod`](go.mod) for the minimum required version.
 
-3. Prior to running the sample code, there are two environment variables that must be set to ensure that the connection is authorized:
+**macOS (Homebrew):**
+```bash
+brew install go
+```
 
-    - **GREP11_ADDRESS** - The full Enterprise PKCS #11 endpoint URL. This can be obtained by navigating
-    to your HPCS instance's main page via the IBM Cloud UI, expanding the *Enterprise PKCS #11 endpoint URL*
-    section and copying either the *Public* or *Private* URL.  If the URL does not contain a port then append `:443`
-    to the Enterprise PKCS #11 endpoint URL.  Example: `7fc144ef-ed7c-4be1-9a35-748b40477dcd.ep11.hs-crypto.appdomain.cloud:443`
+**Linux on IBM Z / s390x** — replace `<VERSION>` with the latest from [https://golang.org/dl/](https://golang.org/dl/):
+```bash
+wget https://go.dev/dl/go<VERSION>.linux-s390x.tar.gz
+sudo rm -rf /usr/local/go
+sudo tar -C /usr/local -xzf go<VERSION>.linux-s390x.tar.gz
+echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
+source ~/.bashrc
+```
 
-    NOTE: The use of either the public or private endpoint is dependent on what network is being used to access the remote server
+**Verify:**
+```bash
+go version
+```
 
-    - **GREP11_APIKEY** - An IAM API key associated with the HPCS instance being accessed.
+---
 
-    Optionally, The values of the two environment variables listed above can be hardcoded in the `main.go` file. Replace the
-    values of the `ClientConfig.Address` and `ClientConfig.APIKey` variable fields with the values related to your HPCS instance.
-		
+### Step 2 — Clone the repository
 
-4. From the `<path>/hpcs-grep11-go/examples` directory, execute the examples by issuing the command: `go test -v`.
+```bash
+git clone https://github.com/IBM-Cloud/hpcs-grep11-go.git
+cd hpcs-grep11-go
+```
 
-5. The sample program produces output similar to the following:
+---
+
+### Step 3 — Download Go module dependencies
+
+All dependencies are declared in [`go.mod`](go.mod) and fetched automatically when you build or test.
+To pre-fetch or verify them explicitly:
+
+```bash
+go mod download
+go mod tidy
+```
+
+Key dependencies fetched automatically:
+
+| Module | Purpose |
+|---|---|
+| `google.golang.org/grpc` | gRPC client transport |
+| `github.com/golang/protobuf` | Protobuf v1 bridge |
+| `google.golang.org/protobuf` | Protobuf v2 runtime |
+| `github.com/gogo/protobuf` | EP11 proto generation |
+| `github.com/btcsuite/btcd/btcec/v2` | BIP32 / secp256k1 support |
+| `github.com/Zilliqa/gozilliqa-sdk/v3` | BIP32 / SLIP10 derivation |
+
+---
+
+### Step 4 — (Optional) Regenerate protobuf bindings
+
+The pre-generated Go bindings in [`pkg/grpc/`](pkg/grpc/) are already committed.
+You only need this step if you modify the `.proto` files in [`protos/`](protos/).
+
+**Install protoc:**
+
+macOS:
+```bash
+brew install protobuf
+```
+
+Ubuntu/Debian on s390x:
+```bash
+sudo apt-get update && sudo apt-get install -y protobuf-compiler
+```
+
+Verify:
+```bash
+protoc --version
+```
+
+**Install protoc-gen-gogofast:**
+```bash
+go install github.com/gogo/protobuf/protoc-gen-gogofast@latest
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+**Regenerate bindings:**
+```bash
+make build-protos
+```
+
+---
+
+### Step 5 — Configure the connection
+
+Prior to running the sample code, configure the connection using one of the two supported modes:
+
+#### Mode 1 — IBM Cloud (IAM / default)
+
+Set the following environment variables:
+
+- **GREP11_ADDRESS** - The full Enterprise PKCS #11 endpoint URL. This can be obtained by navigating
+  to your HPCS instance's main page via the IBM Cloud UI, expanding the *Enterprise PKCS #11 endpoint URL*
+  section and copying either the *Public* or *Private* URL.  If the URL does not contain a port then append `:443`
+  to the Enterprise PKCS #11 endpoint URL.  Example: `7fc144ef-ed7c-4be1-9a35-748b40477dcd.ep11.hs-crypto.appdomain.cloud:443`
+
+  NOTE: The use of either the public or private endpoint is dependent on what network is being used to access the remote server.
+
+- **GREP11_APIKEY** - An IAM API key associated with the HPCS instance being accessed.
+
+- **GREP11_IAMENDPOINT** *(optional)* - IAM token endpoint. Defaults to `https://iam.cloud.ibm.com`.
+
+Optionally, the values above can be hardcoded in `examples/main.go` by replacing the
+`ClientConfig.Address`, `ClientConfig.APIKey`, and `ClientConfig.IAMEndpoint` fields.
+
+#### Mode 2 — On-premises (mTLS)
+
+Set **GREP11_ONPREM=1** to activate this mode, along with:
+
+| Environment variable | Description |
+|---|---|
+| `GREP11_ADDRESS` | Server address including port, e.g. `grep11.example.com:9876` |
+| `GREP11_CLIENT_CERT` | Path to the client certificate PEM file |
+| `GREP11_CLIENT_KEY` | Path to the client private key file |
+| `GREP11_CA_CERT` | Path to the CA certificate PEM file used to verify the server |
+
+```bash
+export GREP11_ONPREM=1
+export GREP11_ADDRESS=grep11.example.com:9876
+export GREP11_CLIENT_CERT=/path/to/grep11-client.pem
+export GREP11_CLIENT_KEY=/path/to/grep11-client.key
+export GREP11_CA_CERT=/path/to/grep11-ca.pem
+```
+
+> **Note:** If your server certificate's Subject Alternative Name (SAN) includes the port
+> (e.g. `DNS:grep11.example.com:9876`), standard gRPC TLS credentials strip the port before
+> verification and will fail. This repository handles that automatically via a custom TLS
+> credentials implementation in `examples/main.go`.
+
+---
+
+### Step 6 — Run the examples
+
+Change into the `examples` directory and run the tests:
+
+```bash
+cd examples
+go test -v
+```
+
+The sample program produces output similar to the following:
 
     ```
     .
