@@ -1,6 +1,12 @@
 # Overview
 
-This repository contains software used to connect and interact with the **IBM Cloud Hyper Protect Crypto Services**  offering. For more information regarding this service please review the [IBM Cloud Hyper Protect Services documentation](https://cloud.ibm.com/docs/services/hs-crypto?topic=hs-crypto-get-started). The contents of this repository use go modules, and therefore, this repository can be cloned into any local directory; there is no need to place it in your `GOPATH`.
+This repository contains software used to connect and interact with GREP11-capable HSM endpoints via the **Enterprise PKCS #11 over gRPC (GREP11)** protocol. Two connection modes are supported:
+
+- **IBM Cloud Hyper Protect Crypto Services (HPCS)** — connects using IAM API key authentication over TLS. For more information see the [IBM Cloud Hyper Protect Services documentation](https://cloud.ibm.com/docs/services/hs-crypto?topic=hs-crypto-get-started).
+
+- **On-premises HSM** — connects to a locally deployed GREP11 server using mutual TLS (mTLS) with client certificates, without requiring IBM Cloud credentials.
+
+The contents of this repository use go modules, and therefore, this repository can be cloned into any local directory; there is no need to place it in your `GOPATH`.
 
 # Contents
 
