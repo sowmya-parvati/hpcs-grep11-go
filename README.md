@@ -43,7 +43,7 @@ brew install go
 
 **Linux on IBM Z / s390x** — replace `<VERSION>` with the latest from [https://golang.org/dl/](https://golang.org/dl/):
 ```bash
-wget https://go.dev/dl/go<VERSION>.linux-s390x.tar.gz
+wget https://go.dev/dl/go<VERSION>.linux-s390x.tar.gz (Example:  wget https://go.dev/dl/go1.25.12.linux-s390x.tar.gz)
 sudo rm -rf /usr/local/go
 sudo tar -C /usr/local -xzf go<VERSION>.linux-s390x.tar.gz
 echo 'export PATH=$PATH:/usr/local/go/bin' >> ~/.bashrc
@@ -60,7 +60,7 @@ go version
 ### Step 2 — Clone the repository
 
 ```bash
-git clone https://github.com/IBM-Cloud/hpcs-grep11-go.git
+git clone https://github.com/sowmya-parvati/hpcs-grep11-go.git -b on-prem
 cd hpcs-grep11-go
 ```
 
@@ -76,55 +76,9 @@ go mod download
 go mod tidy
 ```
 
-Key dependencies fetched automatically:
-
-| Module | Purpose |
-|---|---|
-| `google.golang.org/grpc` | gRPC client transport |
-| `github.com/golang/protobuf` | Protobuf v1 bridge |
-| `google.golang.org/protobuf` | Protobuf v2 runtime |
-| `github.com/gogo/protobuf` | EP11 proto generation |
-| `github.com/btcsuite/btcd/btcec/v2` | BIP32 / secp256k1 support |
-| `github.com/Zilliqa/gozilliqa-sdk/v3` | BIP32 / SLIP10 derivation |
-
 ---
 
-### Step 4 — (Optional) Regenerate protobuf bindings
-
-The pre-generated Go bindings in [`pkg/grpc/`](pkg/grpc/) are already committed.
-You only need this step if you modify the `.proto` files in [`protos/`](protos/).
-
-**Install protoc:**
-
-macOS:
-```bash
-brew install protobuf
-```
-
-Ubuntu/Debian on s390x:
-```bash
-sudo apt-get update && sudo apt-get install -y protobuf-compiler
-```
-
-Verify:
-```bash
-protoc --version
-```
-
-**Install protoc-gen-gogofast:**
-```bash
-go install github.com/gogo/protobuf/protoc-gen-gogofast@latest
-export PATH="$PATH:$(go env GOPATH)/bin"
-```
-
-**Regenerate bindings:**
-```bash
-make build-protos
-```
-
----
-
-### Step 5 — Configure the connection
+### Step 4 — Configure the connection
 
 Prior to running the sample code, configure the connection using one of the two supported modes:
 
@@ -165,14 +119,9 @@ export GREP11_CLIENT_KEY=/path/to/grep11-client.key
 export GREP11_CA_CERT=/path/to/grep11-ca.pem
 ```
 
-> **Note:** If your server certificate's Subject Alternative Name (SAN) includes the port
-> (e.g. `DNS:grep11.example.com:9876`), standard gRPC TLS credentials strip the port before
-> verification and will fail. This repository handles that automatically via a custom TLS
-> credentials implementation in `examples/main.go`.
-
 ---
 
-### Step 6 — Run the examples
+### Step 5 — Run the examples
 
 Change into the `examples` directory and run the tests:
 
